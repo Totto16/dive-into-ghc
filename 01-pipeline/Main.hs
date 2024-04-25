@@ -2,20 +2,18 @@
 
 module Main (main) where
 
-import GHC
-import GHC.Paths (libdir)
-
-import DynFlags
-
-import Data.List
-import Data.Monoid
-import Data.Dynamic
-import Unsafe.Coerce
-
 import Control.Exception
 import Control.Monad.Trans
-
+import Data.Dynamic
+import Data.List
+import Data.Monoid
+import GHC
+import GHC.Driver.Session
+import GHC.LanguageExtensions.Type
+import GHC.Paths (libdir)
+import Language.Haskell.TH.LanguageExtensions
 import System.Console.Haskeline
+import Unsafe.Coerce
 
 type Repl a = InputT IO a
 
@@ -23,21 +21,22 @@ initSession :: IO HscEnv
 initSession = runGhc (Just libdir) $ do
   liftIO $ putStrLn "Setting up HscEnv"
   dflags <- getSessionDynFlags
-  let dflags' = dflags { hscTarget = HscInterpreted , ghcLink = LinkInMemory }
-                `xopt_set` Opt_ExtendedDefaultRules
+  let dflags' =
+        dflags {backend = interpreterBackend, ghcLink = LinkInMemory}
+          `xopt_set` ExtendedDefaultRules
   setSessionDynFlags dflags'
-  setContext [ IIDecl $ simpleImportDecl (mkModuleName "Prelude") ]
+  setContext [IIDecl $ simpleImportDecl (mkModuleName "Prelude")]
   env <- getSession
   return env
 
 addImport :: String -> Ghc ()
 addImport mod = do
   ctx <- getContext
-  setContext ( (IIDecl $ simpleImportDecl (mkModuleName mod)) : ctx )
+  setContext ((IIDecl $ simpleImportDecl (mkModuleName mod)) : ctx)
 
 session :: HscEnv -> Ghc a -> IO HscEnv
 session env m = runGhc (Just libdir) $ do
-  setSession env 
+  setSession env
   m
   env <- getSession
   return env
@@ -52,7 +51,7 @@ eval inp = do
       liftIO (unsafeCoerce act)
     Just act -> liftIO $ act
 
-ghcCatch :: MonadIO m => IO a -> m (Maybe a)
+ghcCatch :: (MonadIO m) => IO a -> m (Maybe a)
 ghcCatch m = liftIO $ do
   mres <- try m
   case mres of
@@ -66,12 +65,10 @@ repl env = do
   minput <- getInputLine ">>> "
   case minput of
     Nothing -> outputStrLn "Goodbye."
-
     Just input | "import" `isPrefixOf` input -> do
       let mod = concat $ tail $ words input
       env' <- ghcCatch (session env (addImport mod))
       maybe (repl env) repl env'
-
     Just input -> do
       env' <- ghcCatch (session env (eval input))
       maybe (repl env) repl env'

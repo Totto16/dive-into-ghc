@@ -16,8 +16,10 @@ executable dive
     Haskell2010
 
   build-depends:
-      base      >= 4.5 && <4.10
-    , mtl       >= 2.2 && <2.3
-    , ghc       >= 7.8 && <= 8.0.1
+      base      >= 4.18 && <4.19
+    , mtl       >= 2.3 && <2.4
+    , ghc       == 9.6.4
     , ghc-paths >= 0.1 && <0.2
-    , haskeline >= 0.7 && <0.8
+    , haskeline >= 0.8 && <0.9
+    , ghc-boot-th == 9.6.4
+    , template-haskell == 2.20.0.0
